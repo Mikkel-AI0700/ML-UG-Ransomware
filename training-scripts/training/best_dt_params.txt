@@ -1,1 +1,0 @@
-{'DT_criterion': 'entropy', 'DT_max_depth': 30, 'DT_min_samples_split': 20, 'DT_min_samples_leaf': 6}
