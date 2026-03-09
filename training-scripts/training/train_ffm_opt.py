@@ -1,4 +1,5 @@
 import pandas as pd
+from sklearn.metrics import precision_score
 import torch
 import torch.nn
 import torch.optim as optim
@@ -31,8 +32,10 @@ class FeedForwardRansomware (torch.nn.Module):
             "linear_layer_1": Linear(in_features=32, out_features=64, device="cuda"),
             "linear_layer_2": Linear(in_features=64, out_features=128, device="cuda"),
             "linear_layer_3": Linear(in_features=128, out_features=128, device="cuda"),
-            "linear_layer_4": Linear(in_features=128, out_features=32, device="cuda"),
-            "linear_layer_5": Linear(in_features=32, out_features=32, device="cuda"),
+            "linear_layer_4": Linear(in_features=128, out_features=128, device="cuda"),
+            "linear_layer_5": Linear(in_features=128, out_features=128, device="cuda"),
+            "linear_layer_6": Linear(in_features=128, out_features=32, device="cuda"),
+            "linear_layer_7": Linear(in_features=32, out_features=32, device="cuda"),
             "linear_layer_output": Linear(in_features=32, out_features=3, device="cuda")
         })
 
@@ -61,16 +64,22 @@ def main ():
         persistent_workers=True
     )
 
-    ffr_model = FeedForwardRansomware()
+    test_data_x_tensor = torch.from_numpy(
+        pd.read_csv("../../datasets/ts_x.csv").to_numpy(), 
+    )
+    test_data_y = pd.read_csv("../../datasets/ts_y.csv").to_numpy()
 
+    ffr_model = FeedForwardRansomware()
     cross_entropy_loss = torch.nn.CrossEntropyLoss()
-    adam_optim = optim.Adam(ffr_model.parameters(), lr=0.0001)
+    adam_optim = optim.Adam(ffr_model.parameters(), lr=0.001)
 
     ffr_model.to("cuda")
 
-    for epoch in range(3500):
+    for epoch in range(2000):
         accumulated_criterion_loss = 0.0
         for train_feature, train_label in train_load_generator:
+            ffr_model.train()
+
             train_feature = train_feature.to("cuda")
             train_label = train_label.to("cuda")
 
@@ -81,6 +90,18 @@ def main ():
             adam_optim.step()
 
             accumulated_criterion_loss += loss.item()
+
+        with torch.no_grad():
+            ffr_model.eval()
+            test_data_x_tensor = test_data_x_tensor.to(device="cuda", dtype=torch.float32)
+
+            inferenced_predictions = ffr_model(test_data_x_tensor)
+            inferenced_predictions = inferenced_predictions.detach().cpu().numpy()
+
+            print(inferenced_predictions)
+
+            model_precision_score = precision_score(test_data_y, inferenced_predictions, average="weighted")
+            print(f"Scikit-Learn precision: {model_precision_score}")
 
         averaged_accumulated_loss = accumulated_criterion_loss / len(train_load_generator)
 
