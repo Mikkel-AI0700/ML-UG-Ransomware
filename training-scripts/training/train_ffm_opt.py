@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from sklearn.metrics import precision_score
 import torch
@@ -71,11 +72,11 @@ def main ():
 
     ffr_model = FeedForwardRansomware()
     cross_entropy_loss = torch.nn.CrossEntropyLoss()
-    adam_optim = optim.Adam(ffr_model.parameters(), lr=0.001)
+    adam_optim = optim.Adam(ffr_model.parameters(), lr=0.0001)
 
     ffr_model.to("cuda")
 
-    for epoch in range(2000):
+    for epoch in range(650):
         accumulated_criterion_loss = 0.0
         for train_feature, train_label in train_load_generator:
             ffr_model.train()
@@ -91,20 +92,22 @@ def main ():
 
             accumulated_criterion_loss += loss.item()
 
-        with torch.no_grad():
-            ffr_model.eval()
-            test_data_x_tensor = test_data_x_tensor.to(device="cuda", dtype=torch.float32)
-
-            inferenced_predictions = ffr_model(test_data_x_tensor)
-            inferenced_predictions = inferenced_predictions.detach().cpu().numpy()
-
-            print(inferenced_predictions)
-
-            model_precision_score = precision_score(test_data_y, inferenced_predictions, average="weighted")
-            print(f"Scikit-Learn precision: {model_precision_score}")
-
         averaged_accumulated_loss = accumulated_criterion_loss / len(train_load_generator)
+        print(f"Epoch: {epoch} | Averaged loss: {averaged_accumulated_loss:.2f}")
 
-        print(f"Epoch: {epoch} | Loss: {(averaged_accumulated_loss * 100)}")
+    with torch.no_grad():
+        ffr_model.eval()
+        test_data_x_tensor = test_data_x_tensor.to(device="cuda", dtype=torch.float32)
+
+        inferenced_predictions = ffr_model(test_data_x_tensor)
+        inferenced_predictions = inferenced_predictions.detach().cpu().numpy()
+        inferenced_predictions = np.argmax(inferenced_predictions, axis=1)
+
+        model_precision_score = precision_score(test_data_y, inferenced_predictions, average="weighted", zero_division=0)
+        print(f"Scikit-Learn precision: {model_precision_score:.2f}")
+
+    torch.save(ffr_model.state_dict(), "training_results/ffr_model_weights.pth")
+    print(f"Successfully saved PyTorch model weights")
+
 
 main()
